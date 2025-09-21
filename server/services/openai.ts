@@ -64,6 +64,30 @@ export async function generateSacredGeometryMeditation(
   duration: number = 1260
 ): Promise<MeditationData> {
   try {
+    // Mock response for testing purposes when OpenAI is not available
+    if (process.env.NODE_ENV === 'development') {
+      const patterns = ['flower_of_life', 'vesica_piscis', 'merkaba', 'tetrahedron', 'golden_ratio_spiral'];
+      const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)];
+      
+      return {
+        pattern: selectedPattern,
+        duration,
+        frequencies: [
+          { hz: 528, type: "love_frequency" },
+          { hz: 432, type: "cosmic_tuning" },
+          { hz: 963, type: "crown_chakra" }
+        ],
+        geometry_sequence: [
+          { shape: "circle", transform: "rotate(0deg)", color: "#6366F1", timing: 0 },
+          { shape: "vesica_piscis", transform: "rotate(60deg)", color: "#F59E0B", timing: 180 },
+          { shape: "flower_center", transform: "scale(1.2)", color: "#A855F7", timing: 360 }
+        ],
+        neural_targets: ["prefrontal_cortex", "default_mode_network", "pineal_activation"],
+        consciousness_level: "theta_gamma_sync",
+        guided_text: `Begin by focusing on the ${selectedPattern.replace(/_/g, ' ')} pattern. ${intention ? `Let your intention of ${intention} guide your awareness.` : 'Allow universal consciousness to flow through you.'} Feel the sacred geometry activating your neural pathways as you enter deeper states of awareness.`
+      };
+    }
+
     const prompt = `Generate a sacred geometry meditation session. ${intention ? `Focus on: ${intention}` : 'Create a general consciousness expansion session.'}
     
 Duration: ${duration} seconds
@@ -108,6 +132,30 @@ export async function generateCosmicAffirmation(
   }
 ): Promise<AffirmationData> {
   try {
+    // Mock response for testing purposes when OpenAI is not available
+    if (process.env.NODE_ENV === 'development') {
+      const categories = ['abundance', 'unity', 'transformation', 'peace', 'wisdom', 'harmony'];
+      const selectedCategory = categories[Math.floor(Math.random() * categories.length)];
+      const constellations = ['Sirius', 'Pleiades', 'Andromeda', 'Vega', 'Arcturus'];
+      
+      const affirmationTexts = {
+        abundance: "I am aligned with the infinite abundance of the universe, flowing effortlessly through cosmic channels of prosperity",
+        unity: "I recognize my oneness with all existence, connected through the sacred web of universal consciousness",
+        transformation: "I embrace the cosmic forces of transformation, allowing my soul to evolve into its highest expression",
+        peace: "I radiate the tranquil harmony of cosmic peace, centered in the stillness of universal truth",
+        wisdom: "I channel the ancient wisdom of the cosmos, accessing knowledge beyond the limitations of time and space",
+        harmony: "I vibrate in perfect harmony with the cosmic symphony, attuned to the frequencies of divine creation"
+      };
+      
+      return {
+        text: affirmationTexts[selectedCategory as keyof typeof affirmationTexts],
+        category: selectedCategory,
+        vibrational_frequency: Math.floor(Math.random() * 500) + 300, // 300-800 Hz range
+        cosmic_alignment: constellations[Math.floor(Math.random() * constellations.length)],
+        personalization_factors: userInput ? Object.keys(userInput).filter(key => userInput[key as keyof typeof userInput]) : ["universal_consciousness"]
+      };
+    }
+
     const prompt = `Generate a personalized cosmic consciousness affirmation.
     
 User context: ${JSON.stringify(userInput || {})}
@@ -147,6 +195,39 @@ export async function generateGalacticSoundscape(
   duration: number = 600
 ): Promise<SoundscapeData> {
   try {
+    // Mock response for testing purposes when OpenAI is not available
+    if (process.env.NODE_ENV === 'development') {
+      const galacticTypes = ['nebula', 'pulsar', 'black_hole', 'galaxy_rotation', 'cosmic_wind', 'stellar_nursery'];
+      const selectedType = galacticTypes[Math.floor(Math.random() * galacticTypes.length)];
+      
+      const soundscapeNames = {
+        nebula: "Ethereal Nebula Whispers",
+        pulsar: "Rhythmic Pulsar Resonance", 
+        black_hole: "Event Horizon Harmonics",
+        galaxy_rotation: "Spiral Galaxy Symphony",
+        cosmic_wind: "Solar Wind Chorus",
+        stellar_nursery: "Stellar Birth Frequencies"
+      };
+      
+      return {
+        name: soundscapeNames[selectedType as keyof typeof soundscapeNames],
+        frequencies: [
+          { hz: 40, type: "sub_bass", amplitude: 0.3 },
+          { hz: 110, type: "fundamental", amplitude: 0.6 },
+          { hz: 528, type: "healing", amplitude: 0.4 },
+          { hz: 852, type: "cosmic", amplitude: 0.2 }
+        ],
+        duration,
+        galactic_type: selectedType,
+        audio_params: {
+          reverb: 0.7,
+          delay: 0.3,
+          filter: "lowpass",
+          modulation: 0.2
+        }
+      };
+    }
+
     const prompt = `Generate a galactic soundscape for consciousness expansion.
     
 Type: ${type}
@@ -186,6 +267,56 @@ export async function generateNeuralPattern(
   consciousnessState: string = "theta_gamma_sync"
 ): Promise<NeuralPatternData> {
   try {
+    // Mock response for testing purposes when OpenAI is not available
+    if (process.env.NODE_ENV === 'development') {
+      const patternTypes = ['theta_gamma_sync', 'alpha_coherence', 'default_mode_suppression', 'flow_state', 'transcendental'];
+      const selectedType = patternTypes[Math.floor(Math.random() * patternTypes.length)];
+      
+      // Generate mock brain wave data
+      const brainWaves = {
+        alpha: 8 + Math.random() * 5, // 8-13 Hz
+        theta: 4 + Math.random() * 4, // 4-8 Hz  
+        delta: 0.5 + Math.random() * 3.5, // 0.5-4 Hz
+        beta: 13 + Math.random() * 17, // 13-30 Hz
+        gamma: 30 + Math.random() * 70 // 30-100 Hz
+      };
+      
+      // Generate mock visualization nodes
+      const nodes = [];
+      const connections = [];
+      for (let i = 0; i < 12; i++) {
+        nodes.push({
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          intensity: Math.random()
+        });
+      }
+      
+      // Generate connections between nodes
+      for (let i = 0; i < nodes.length - 1; i++) {
+        connections.push({
+          from: i,
+          to: (i + 1) % nodes.length,
+          strength: Math.random()
+        });
+      }
+      
+      // Generate activation sequence
+      const regions = ['prefrontal_cortex', 'parietal_lobe', 'temporal_lobe', 'occipital_lobe', 'cerebellum'];
+      const activationSequence = regions.map((region, index) => ({
+        timestamp: index * 1000,
+        region,
+        intensity: Math.random()
+      }));
+      
+      return {
+        pattern_type: selectedType,
+        brain_waves: brainWaves,
+        visualization_data: { nodes, connections },
+        activation_sequence: activationSequence
+      };
+    }
+
     const prompt = `Generate neural pathway activation pattern for consciousness expansion.
     
 Target state: ${consciousnessState}
