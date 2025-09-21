@@ -1,4 +1,4 @@
-import { Brain, Star, Music, Activity, Heart } from "lucide-react";
+import { Brain, Star, Music, Activity, Heart, MessageCircle } from "lucide-react";
 import HeroSection from "@/components/hero-section";
 import SacredGeometry from "@/components/sacred-geometry";
 import CosmicAffirmations from "@/components/cosmic-affirmations";
@@ -6,6 +6,7 @@ import GalacticChant from "@/components/galactic-chant";
 import NeuralVisualizer from "@/components/neural-visualizer";
 import HeartGalaxy from "@/components/heart-galaxy";
 import ApiSection from "@/components/api-section";
+import { NeuralChat } from "@/components/neural-chat";
 
 export default function Home() {
   const scrollToSection = (id: string) => {
@@ -43,6 +44,13 @@ export default function Home() {
                 data-testid="nav-experience"
               >
                 Experience
+              </button>
+              <button 
+                onClick={() => scrollToSection("chat")} 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="nav-chat"
+              >
+                NeuraGuide
               </button>
               <button 
                 onClick={() => scrollToSection("api")} 
@@ -156,6 +164,26 @@ export default function Home() {
               </div>
               <HeartGalaxy />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* NeuraGuide AI Chat */}
+      <section id="chat" className="py-20 relative">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 font-tech">
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                NeuraGuide AI Assistant
+              </span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Connect with your AI consciousness expansion guide. Ask questions about sacred geometry, 
+              neural patterns, cosmic consciousness, and unlock deeper understanding of your spiritual journey.
+            </p>
+          </div>
+          <div className="max-w-4xl mx-auto">
+            <NeuralChat />
           </div>
         </div>
       </section>
