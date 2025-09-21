@@ -61,6 +61,14 @@ export const heart_galaxy_sessions = pgTable("heart_galaxy_sessions", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+export const chat_messages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  session_id: varchar("session_id").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -92,6 +100,11 @@ export const insertHeartGalaxySessionSchema = createInsertSchema(heart_galaxy_se
   created_at: true,
 });
 
+export const insertChatMessageSchema = createInsertSchema(chat_messages).omit({
+  id: true,
+  created_at: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -110,3 +123,6 @@ export type InsertNeuralPattern = z.infer<typeof insertNeuralPatternSchema>;
 
 export type HeartGalaxySession = typeof heart_galaxy_sessions.$inferSelect;
 export type InsertHeartGalaxySession = z.infer<typeof insertHeartGalaxySessionSchema>;
+
+export type ChatMessage = typeof chat_messages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;

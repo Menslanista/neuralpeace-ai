@@ -12,7 +12,8 @@ import {
   generateSacredGeometryMeditation,
   generateCosmicAffirmation,
   generateGalacticSoundscape,
-  generateNeuralPattern
+  generateNeuralPattern,
+  generateNeuroscienceChatResponse
 } from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -298,6 +299,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ status: "success", data: sessions });
     } catch (error) {
       res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
+  // AI Chat Endpoint  
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { message, sessionId } = req.body;
+      
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({
+          status: "error",
+          message: "Message is required and must be a string"
+        });
+      }
+
+      // Use sessionId or generate a new one
+      const currentSessionId = sessionId || `chat-${Math.random().toString(36).slice(2,12)}`;
+      
+      // Get chat history for context
+      const chatHistory = await storage.getChatMessagesBySession(currentSessionId);
+      const historyForAI = chatHistory.map(msg => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content
+      }));
+
+      // Generate AI response
+      const aiResponse = await generateNeuroscienceChatResponse(message, historyForAI);
+
+      // Save user message
+      await storage.createChatMessage({
+        role: "user",
+        content: message,
+        session_id: currentSessionId
+      });
+
+      // Save AI response
+      await storage.createChatMessage({
+        role: "assistant", 
+        content: aiResponse.content,
+        session_id: currentSessionId
+      });
+
+      res.json({
+        status: "success",
+        type: "chat_response",
+        data: {
+          response: aiResponse.content,
+          context_references: aiResponse.context_references,
+          suggested_actions: aiResponse.suggested_actions,
+          session_id: currentSessionId
+        },
+        awakening_code: `NGC-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+        next_evolution: "/api/neural/pathways/activate"
+      });
+
+    } catch (error) {
+      console.error("Chat error:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to process chat message",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get chat history for a session
+  app.get("/api/chat/:sessionId/history", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const messages = await storage.getChatMessagesBySession(sessionId);
+      
+      res.json({
+        status: "success",
+        data: messages
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: "Failed to retrieve chat history",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

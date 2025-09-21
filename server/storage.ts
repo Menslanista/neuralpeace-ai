@@ -4,7 +4,8 @@ import {
   type Affirmation, type InsertAffirmation,
   type Soundscape, type InsertSoundscape,
   type NeuralPattern, type InsertNeuralPattern,
-  type HeartGalaxySession, type InsertHeartGalaxySession
+  type HeartGalaxySession, type InsertHeartGalaxySession,
+  type ChatMessage, type InsertChatMessage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -38,6 +39,12 @@ export interface IStorage {
   getHeartGalaxySession(id: string): Promise<HeartGalaxySession | undefined>;
   createHeartGalaxySession(session: InsertHeartGalaxySession): Promise<HeartGalaxySession>;
   getAllHeartGalaxySessions(): Promise<HeartGalaxySession[]>;
+
+  // Chat Messages
+  getChatMessage(id: string): Promise<ChatMessage | undefined>;
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getChatMessagesBySession(sessionId: string): Promise<ChatMessage[]>;
+  deleteChatSession(sessionId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -47,6 +54,7 @@ export class MemStorage implements IStorage {
   private soundscapes: Map<string, Soundscape>;
   private neuralPatterns: Map<string, NeuralPattern>;
   private heartGalaxySessions: Map<string, HeartGalaxySession>;
+  private chatMessages: Map<string, ChatMessage>;
 
   constructor() {
     this.users = new Map();
@@ -55,6 +63,7 @@ export class MemStorage implements IStorage {
     this.soundscapes = new Map();
     this.neuralPatterns = new Map();
     this.heartGalaxySessions = new Map();
+    this.chatMessages = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -174,6 +183,37 @@ export class MemStorage implements IStorage {
 
   async getAllHeartGalaxySessions(): Promise<HeartGalaxySession[]> {
     return Array.from(this.heartGalaxySessions.values());
+  }
+
+  // Chat Messages
+  async getChatMessage(id: string): Promise<ChatMessage | undefined> {
+    return this.chatMessages.get(id);
+  }
+
+  async createChatMessage(insertChatMessage: InsertChatMessage): Promise<ChatMessage> {
+    const id = randomUUID();
+    const chatMessage: ChatMessage = {
+      ...insertChatMessage,
+      id,
+      created_at: new Date()
+    };
+    this.chatMessages.set(id, chatMessage);
+    return chatMessage;
+  }
+
+  async getChatMessagesBySession(sessionId: string): Promise<ChatMessage[]> {
+    return Array.from(this.chatMessages.values())
+      .filter(message => message.session_id === sessionId)
+      .sort((a, b) => a.created_at!.getTime() - b.created_at!.getTime());
+  }
+
+  async deleteChatSession(sessionId: string): Promise<void> {
+    const messagesToDelete = Array.from(this.chatMessages.values())
+      .filter(message => message.session_id === sessionId);
+    
+    messagesToDelete.forEach(message => {
+      this.chatMessages.delete(message.id);
+    });
   }
 }
 
