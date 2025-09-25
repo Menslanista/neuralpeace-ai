@@ -34,7 +34,7 @@ export interface IStorage {
   // Meditation Sessions
   getMeditationSession(id: string): Promise<MeditationSession | undefined>;
   createMeditationSession(session: InsertMeditationSession): Promise<MeditationSession>;
-  updateMeditationSession(id: string, updates: Partial<InsertMeditationSession>): Promise<MeditationSession | undefined>;
+  updateMeditationSession(sessionId: string, updates: Partial<MeditationSession>): Promise<MeditationSession>;
   getMeditationSessionsByUser(userId: string): Promise<MeditationSession[]>;
   getMeditationSessionsByStatus(userId: string, status: string): Promise<MeditationSession[]>;
 
@@ -78,6 +78,9 @@ export interface IStorage {
   getChatMessage(id: string): Promise<ChatMessage | undefined>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatMessagesBySession(sessionId: string): Promise<ChatMessage[]>;
+  
+  // Enhanced Meditation Session Methods  
+  getActiveMeditationSession(userId: string): Promise<MeditationSession | null>;
 }
 
 export class MemStorage implements IStorage {
@@ -248,26 +251,6 @@ export class MemStorage implements IStorage {
     };
     this.meditationSessions.set(id, session);
     return session;
-  }
-
-  async updateMeditationSession(id: string, updates: Partial<InsertMeditationSession>): Promise<MeditationSession | undefined> {
-    const existing = this.meditationSessions.get(id);
-    if (existing) {
-      const updated: MeditationSession = {
-        ...existing,
-        ...updates,
-        updated_at: new Date()
-      };
-      this.meditationSessions.set(id, updated);
-      return updated;
-    }
-    return undefined;
-  }
-
-  async getMeditationSessionsByUser(userId: string): Promise<MeditationSession[]> {
-    return Array.from(this.meditationSessions.values())
-      .filter(session => session.user_id === userId)
-      .sort((a, b) => b.created_at!.getTime() - a.created_at!.getTime());
   }
 
   async getMeditationSessionsByStatus(userId: string, status: string): Promise<MeditationSession[]> {
@@ -454,6 +437,36 @@ export class MemStorage implements IStorage {
     return Array.from(this.chatMessages.values())
       .filter(message => message.chat_session_id === sessionId)
       .sort((a, b) => a.created_at!.getTime() - b.created_at!.getTime());
+  }
+
+  // Enhanced meditation session methods for phase-based engine
+  async updateMeditationSession(sessionId: string, updates: Partial<MeditationSession>): Promise<MeditationSession> {
+    const session = await this.getMeditationSession(sessionId);
+    if (!session) {
+      throw new Error(`Meditation session ${sessionId} not found`);
+    }
+    
+    const updatedSession = {
+      ...session,
+      ...updates,
+      updated_at: new Date()
+    };
+    
+    this.meditationSessions.set(sessionId, updatedSession);
+    return updatedSession;
+  }
+
+  async getMeditationSessionsByUser(userId: string): Promise<MeditationSession[]> {
+    return Array.from(this.meditationSessions.values())
+      .filter(session => session.user_id === userId)
+      .sort((a, b) => b.created_at!.getTime() - a.created_at!.getTime());
+  }
+
+  async getActiveMeditationSession(userId: string): Promise<MeditationSession | null> {
+    const sessions = Array.from(this.meditationSessions.values());
+    return sessions.find(
+      session => session.user_id === userId && session.status === "running" && !session.ended_at
+    ) || null;
   }
 }
 

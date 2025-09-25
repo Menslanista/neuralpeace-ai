@@ -83,7 +83,7 @@ export default function Home() {
               {user && (
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2 text-sm">
-                    {user.profileImageUrl ? (
+                    {user?.profileImageUrl ? (
                       <img 
                         src={user.profileImageUrl} 
                         alt="Profile" 
@@ -95,8 +95,8 @@ export default function Home() {
                         <User size={16} className="text-white" />
                       </div>
                     )}
-                    <span className="text-muted-foreground">
-                      {user.firstName || user.email || 'Consciousness Explorer'}
+                    <span className="text-muted-foreground" data-testid="user-display-name">
+                      {user?.firstName || user?.email || 'Consciousness Explorer'}
                     </span>
                   </div>
                   <Button

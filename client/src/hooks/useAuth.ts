@@ -1,15 +1,17 @@
 // Integration: javascript_log_in_with_replit - React hook for authentication state
 import { useQuery } from "@tanstack/react-query";
+import type { User } from "@shared/schema";
 
 export function useAuth() {
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
+    refetchOnWindowFocus: false,
   });
 
   return {
     user,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !error,
   };
 }
