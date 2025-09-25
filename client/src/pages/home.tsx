@@ -1,4 +1,6 @@
-import { Brain, Star, Music, Activity, Heart, MessageCircle } from "lucide-react";
+import { Brain, Star, Music, Activity, Heart, MessageCircle, User, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import HeroSection from "@/components/hero-section";
 import SacredGeometry from "@/components/sacred-geometry";
 import CosmicAffirmations from "@/components/cosmic-affirmations";
@@ -9,12 +11,29 @@ import ApiSection from "@/components/api-section";
 import { NeuralChat } from "@/components/neural-chat";
 
 export default function Home() {
+  const { user, isLoading } = useAuth();
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-indigo-950 flex items-center justify-center">
+        <div className="text-center">
+          <Brain className="text-purple-400 animate-pulse mx-auto mb-4" size={48} />
+          <p className="text-white text-xl">Loading consciousness interface...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -59,13 +78,39 @@ export default function Home() {
               >
                 API
               </button>
-              <button 
-                className="bg-primary hover:bg-primary/80 text-primary-foreground px-6 py-2 rounded-lg transition-colors"
-                data-testid="button-start-journey"
-                onClick={() => scrollToSection("features")}
-              >
-                Start Journey
-              </button>
+              
+              {/* User Profile & Logout */}
+              {user && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2 text-sm">
+                    {user.profileImageUrl ? (
+                      <img 
+                        src={user.profileImageUrl} 
+                        alt="Profile" 
+                        className="w-8 h-8 rounded-full object-cover"
+                        data-testid="user-avatar"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                        <User size={16} className="text-white" />
+                      </div>
+                    )}
+                    <span className="text-muted-foreground">
+                      {user.firstName || user.email || 'Consciousness Explorer'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2"
+                    data-testid="button-logout"
+                  >
+                    <LogOut size={16} />
+                    <span>Logout</span>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

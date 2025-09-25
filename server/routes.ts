@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
   insertMeditationSchema,
   insertAffirmationSchema,
@@ -17,6 +18,20 @@ import {
 } from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware - Integration: javascript_log_in_with_replit
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
   // Sacred Geometry Meditation Generator
   app.get("/api/sacred-geometry/generate", async (req, res) => {
     try {
@@ -259,6 +274,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const session = await storage.createHeartGalaxySession({
+        user_id: (req as any).user?.claims?.sub || "anonymous",
+        meditation_session_id: req.body.meditation_session_id || null,
         heart_rate,
         coherence_level,
         galaxy_sync_status,
@@ -292,10 +309,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all heart-galaxy sessions
-  app.get("/api/heart-galaxy/sessions", async (req, res) => {
+  // Get heart-galaxy sessions by user
+  app.get("/api/heart-galaxy/sessions", isAuthenticated, async (req: any, res) => {
     try {
-      const sessions = await storage.getAllHeartGalaxySessions();
+      const userId = req.user.claims.sub;
+      const sessions = await storage.getHeartGalaxySessionsByUser(userId);
       res.json({ status: "success", data: sessions });
     } catch (error) {
       res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
@@ -331,14 +349,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createChatMessage({
         role: "user",
         content: message,
-        session_id: currentSessionId
+        chat_session_id: currentSessionId
       });
 
       // Save AI response
       await storage.createChatMessage({
         role: "assistant", 
         content: aiResponse.content,
-        session_id: currentSessionId
+        chat_session_id: currentSessionId
       });
 
       res.json({
