@@ -7,8 +7,10 @@ import {
   insertAffirmationSchema,
   insertSoundscapeSchema,
   insertNeuralPatternSchema,
-  insertHeartGalaxySessionSchema
+  insertHeartGalaxySessionSchema,
+  insertMeditationSessionSchema
 } from "@shared/schema";
+import { z } from "zod";
 import {
   generateSacredGeometryMeditation,
   generateCosmicAffirmation,
@@ -16,6 +18,27 @@ import {
   generateNeuralPattern,
   generateNeuroscienceChatResponse
 } from "./services/openai";
+
+// Validation schemas for meditation endpoints
+const startMeditationSchema = z.object({
+  meditation_id: z.string().optional(),
+  target_duration: z.number().min(60).max(7200).optional(), // 1 min to 2 hours
+  config: z.record(z.any()).optional()
+});
+
+const feedbackSchema = z.object({
+  feedback_type: z.enum(["difficulty", "comfort", "focus", "relaxation"]),
+  value: z.number().min(1).max(10),
+  biometric_data: z.object({
+    heart_rate: z.number().min(30).max(200).optional(),
+    hrv: z.number().optional(),
+    temperature: z.number().optional()
+  }).optional()
+});
+
+const phaseAdvanceSchema = z.object({
+  feedback: z.string().optional()
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware - Integration: javascript_log_in_with_replit
@@ -401,6 +424,331 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Meditation Session Phase Engine
+  // Start a new meditation session
+  app.post("/api/meditation/start", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = startMeditationSchema.parse(req.body);
+      const { meditation_id, target_duration, config } = validatedData;
+
+      // Check for existing active session
+      const activeSession = await storage.getActiveMeditationSession(userId);
+      if (activeSession) {
+        return res.status(400).json({
+          status: "error",
+          message: "You already have an active meditation session. Please complete or pause it first.",
+          active_session_id: activeSession.id
+        });
+      }
+
+      // Create new meditation session
+      const session = await storage.createMeditationSession({
+        user_id: userId,
+        meditation_id: meditation_id || null,
+        target_duration: target_duration || 1200, // 20 minutes default
+        status: "running",
+        current_phase: "preparation",
+        intensity: 5, // Starting intensity (1-10 scale)
+        config: config || null,
+        started_at: new Date()
+      });
+
+      // Log session start event
+      await storage.createMeditationSessionEvent({
+        meditation_session_id: session.id,
+        event_type: "session_started",
+        payload: {
+          phase: "preparation",
+          target_duration: session.target_duration,
+          initial_config: config
+        }
+      });
+
+      res.json({
+        status: "success",
+        type: "meditation_session_started",
+        data: {
+          session_id: session.id,
+          current_phase: session.current_phase,
+          target_duration: session.target_duration,
+          intensity: session.intensity,
+          started_at: session.started_at
+        },
+        awakening_code: `MSS-${session.current_phase.toUpperCase().slice(0,3)}-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+        next_actions: [
+          "Begin with conscious breathing",
+          "Focus on your intention",
+          "Allow your body to relax"
+        ]
+      });
+    } catch (error) {
+      console.error("Error starting meditation session:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to start meditation session",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Advance to next phase
+  app.post("/api/meditation/:sessionId/phase/advance", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.params;
+      const validatedData = phaseAdvanceSchema.parse(req.body);
+      const { feedback } = validatedData;
+
+      const session = await storage.getMeditationSession(sessionId);
+      if (!session || session.user_id !== userId) {
+        return res.status(404).json({ status: "error", message: "Session not found" });
+      }
+
+      if (session.status !== "running") {
+        return res.status(400).json({ status: "error", message: "Session is not active" });
+      }
+
+      // Define phase progression
+      const phases = ["preparation", "induction", "deepening", "expansion", "integration"];
+      const currentIndex = phases.indexOf(session.current_phase || "preparation");
+      const nextPhase = currentIndex < phases.length - 1 ? phases[currentIndex + 1] : "completed";
+
+      // Update session phase
+      const updatedSession = await storage.updateMeditationSession(sessionId, {
+        current_phase: nextPhase === "completed" ? "integration" : nextPhase,
+        status: nextPhase === "completed" ? "completed" : "running",
+        ended_at: nextPhase === "completed" ? new Date() : null,
+        actual_duration: nextPhase === "completed" ? 
+          Math.round((Date.now() - session.started_at!.getTime()) / 1000) : null
+      });
+
+      // Log phase transition event
+      await storage.createMeditationSessionEvent({
+        meditation_session_id: sessionId,
+        event_type: nextPhase === "completed" ? "session_completed" : "phase_advanced",
+        payload: {
+          from_phase: session.current_phase,
+          to_phase: nextPhase,
+          feedback: feedback || null,
+          elapsed_minutes: Math.round((Date.now() - session.started_at!.getTime()) / 60000)
+        }
+      });
+
+      res.json({
+        status: "success",
+        type: nextPhase === "completed" ? "meditation_completed" : "phase_advanced",
+        data: {
+          session_id: sessionId,
+          current_phase: updatedSession.current_phase,
+          status: updatedSession.status,
+          progress_percentage: Math.round(((currentIndex + 1) / phases.length) * 100)
+        },
+        awakening_code: `MPA-${updatedSession.current_phase?.toUpperCase().slice(0,3)}-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+        guidance: getPhaseGuidance(nextPhase === "completed" ? "integration" : nextPhase)
+      });
+    } catch (error) {
+      console.error("Error advancing phase:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to advance phase",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Pause meditation session
+  app.post("/api/meditation/:sessionId/pause", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.params;
+
+      const session = await storage.getMeditationSession(sessionId);
+      if (!session || session.user_id !== userId) {
+        return res.status(404).json({ status: "error", message: "Session not found" });
+      }
+
+      const updatedSession = await storage.updateMeditationSession(sessionId, {
+        status: "paused"
+      });
+
+      await storage.createMeditationSessionEvent({
+        meditation_session_id: sessionId,
+        event_type: "session_paused",
+        payload: {
+          phase: session.current_phase,
+          elapsed_minutes: Math.round((Date.now() - session.started_at!.getTime()) / 60000),
+          intensity: session.intensity
+        }
+      });
+
+      res.json({
+        status: "success",
+        type: "meditation_paused",
+        data: {
+          session_id: sessionId,
+          current_phase: updatedSession.current_phase,
+          status: updatedSession.status
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
+  // Resume meditation session
+  app.post("/api/meditation/:sessionId/resume", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.params;
+
+      const session = await storage.getMeditationSession(sessionId);
+      if (!session || session.user_id !== userId) {
+        return res.status(404).json({ status: "error", message: "Session not found" });
+      }
+
+      const updatedSession = await storage.updateMeditationSession(sessionId, {
+        status: "running"
+      });
+
+      await storage.createMeditationSessionEvent({
+        meditation_session_id: sessionId,
+        event_type: "session_resumed",
+        payload: {
+          phase: session.current_phase,
+          intensity: session.intensity,
+          elapsed_minutes: Math.round((Date.now() - session.started_at!.getTime()) / 60000)
+        }
+      });
+
+      res.json({
+        status: "success",
+        type: "meditation_resumed",
+        data: {
+          session_id: sessionId,
+          current_phase: updatedSession.current_phase,
+          status: updatedSession.status
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ status: "error", message: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
+  // Submit real-time feedback and adaptive adjustments
+  app.post("/api/meditation/:sessionId/feedback", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.params;
+      const validatedData = feedbackSchema.parse(req.body);
+      const { feedback_type, value, biometric_data } = validatedData;
+
+      const session = await storage.getMeditationSession(sessionId);
+      if (!session || session.user_id !== userId) {
+        return res.status(404).json({ status: "error", message: "Session not found" });
+      }
+
+      // Adaptive adjustments based on feedback
+      let adaptations: any = {};
+      
+      if (feedback_type === "difficulty" && typeof value === "number") {
+        // Adjust intensity based on difficulty feedback (1-10 scale)
+        const adjustment = (value - 5) * 0.5; // Gentle adjustment
+        const newIntensity = Math.max(1, Math.min(10, session.intensity! + adjustment));
+        adaptations.intensity = Math.round(newIntensity * 10) / 10; // Round to 1 decimal
+      }
+      
+      if (feedback_type === "comfort" && value < 5) {
+        // Reduce intensity if comfort is low (1-10 scale)
+        const reduction = (5 - value) * 0.3;
+        adaptations.intensity = Math.max(1, session.intensity! - reduction);
+      }
+
+      if (biometric_data?.heart_rate) {
+        // Adjust based on heart rate variability (1-10 scale)
+        const targetHR = 65;
+        const hrDifference = Math.abs(biometric_data.heart_rate - targetHR);
+        if (hrDifference > 20) {
+          const reduction = Math.min(2, hrDifference / 20); // Max 2 point reduction
+          adaptations.intensity = Math.max(1, session.intensity! - reduction);
+        }
+      }
+
+      // Update session with adaptations
+      if (Object.keys(adaptations).length > 0) {
+        await storage.updateMeditationSession(sessionId, adaptations);
+      }
+
+      // Log feedback event
+      await storage.createMeditationSessionEvent({
+        meditation_session_id: sessionId,
+        event_type: "feedback_received",
+        payload: {
+          feedback_type,
+          value,
+          biometric_data,
+          adaptations,
+          phase: session.current_phase
+        }
+      });
+
+      res.json({
+        status: "success",
+        type: "feedback_processed",
+        data: {
+          session_id: sessionId,
+          adaptations_applied: adaptations,
+          current_intensity: adaptations.intensity || session.intensity
+        },
+        message: Object.keys(adaptations).length > 0 ? 
+          "Session adapted based on your feedback" : 
+          "Feedback received and logged"
+      });
+    } catch (error) {
+      console.error("Error processing feedback:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to process feedback",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get current session status
+  app.get("/api/meditation/current", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const session = await storage.getActiveMeditationSession(userId);
+      
+      if (!session) {
+        return res.json({
+          status: "success",
+          data: null,
+          message: "No active meditation session"
+        });
+      }
+
+      // Get recent session events
+      const events = await storage.getMeditationSessionEvents(session.id);
+      const recentEvents = events.slice(-5); // Last 5 events
+
+      res.json({
+        status: "success",
+        data: {
+          session,
+          recent_events: recentEvents,
+          elapsed_minutes: Math.round((Date.now() - session.started_at!.getTime()) / 60000),
+          progress_percentage: calculateSessionProgress(session)
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: "error", 
+        message: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({ 
@@ -410,6 +758,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       dimensions_active: 5
     });
   });
+
+  // Helper function for phase guidance
+  function getPhaseGuidance(phase: string) {
+    const guidance = {
+      preparation: [
+        "Find a comfortable position",
+        "Close your eyes gently",
+        "Begin natural breathing"
+      ],
+      induction: [
+        "Deepen your breath",
+        "Release tension from your body",
+        "Allow thoughts to settle"
+      ],
+      deepening: [
+        "Sink deeper into relaxation",
+        "Observe without judgment",
+        "Trust the process"
+      ],
+      expansion: [
+        "Open to expanded awareness",
+        "Connect with universal consciousness",
+        "Experience unity and peace"
+      ],
+      integration: [
+        "Slowly return to body awareness",
+        "Integrate your insights",
+        "Prepare to return to normal awareness"
+      ]
+    };
+    return guidance[phase as keyof typeof guidance] || ["Continue your practice mindfully"];
+  }
+
+  // Helper function to calculate session progress
+  function calculateSessionProgress(session: any) {
+    const phases = ["preparation", "induction", "deepening", "expansion", "integration"];
+    const currentIndex = phases.indexOf(session.current_phase || "preparation");
+    return Math.round(((currentIndex + 1) / phases.length) * 100);
+  }
 
   const httpServer = createServer(app);
   return httpServer;
