@@ -83,7 +83,10 @@ export interface IStorage {
   getActiveMeditationSession(userId: string): Promise<MeditationSession | null>;
 }
 
-export class MemStorage implements IStorage {
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
+
+export class DatabaseStorage implements IStorage {
   private users: Map<string, User>;
   private userPreferences: Map<string, UserPreferences>;
   private chatSessions: Map<string, ChatSession>;
