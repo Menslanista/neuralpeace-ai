@@ -85,392 +85,461 @@ export interface IStorage {
 
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+import {
+  users,
+  user_preferences,
+  chat_sessions,
+  meditation_sessions,
+  meditation_session_events,
+  user_favorites,
+  meditations,
+  affirmations,
+  soundscapes,
+  neural_patterns,
+  heart_galaxy_sessions,
+  chat_messages
+} from "@shared/schema";
 
 export class DatabaseStorage implements IStorage {
-  private users: Map<string, User>;
-  private userPreferences: Map<string, UserPreferences>;
-  private chatSessions: Map<string, ChatSession>;
-  private meditationSessions: Map<string, MeditationSession>;
-  private meditationSessionEvents: Map<string, MeditationSessionEvent>;
-  private userFavorites: Map<string, UserFavorite>;
-  private meditations: Map<string, Meditation>;
-  private affirmations: Map<string, Affirmation>;
-  private soundscapes: Map<string, Soundscape>;
-  private neuralPatterns: Map<string, NeuralPattern>;
-  private heartGalaxySessions: Map<string, HeartGalaxySession>;
-  private chatMessages: Map<string, ChatMessage>;
-
   constructor() {
-    this.users = new Map();
-    this.userPreferences = new Map();
-    this.chatSessions = new Map();
-    this.meditationSessions = new Map();
-    this.meditationSessionEvents = new Map();
-    this.userFavorites = new Map();
-    this.meditations = new Map();
-    this.affirmations = new Map();
-    this.soundscapes = new Map();
-    this.neuralPatterns = new Map();
-    this.heartGalaxySessions = new Map();
-    this.chatMessages = new Map();
+    // Database storage doesn't need initialization
   }
 
   // Users (required by Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const existingUser = this.users.get(userData.id!);
+    const existingUser = await this.getUser(userData.id!);
     
     if (existingUser) {
-      const updatedUser: User = {
-        ...existingUser,
-        ...userData,
-        updatedAt: new Date()
-      };
-      this.users.set(userData.id!, updatedUser);
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          ...userData,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userData.id!))
+        .returning();
       return updatedUser;
     } else {
-      const newUser: User = {
-        id: userData.id || randomUUID(),
-        email: userData.email || null,
-        firstName: userData.firstName || null,
-        lastName: userData.lastName || null,
-        profileImageUrl: userData.profileImageUrl || null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      this.users.set(newUser.id, newUser);
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          id: userData.id || randomUUID(),
+          email: userData.email || null,
+          firstName: userData.firstName || null,
+          lastName: userData.lastName || null,
+          profileImageUrl: userData.profileImageUrl || null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
       return newUser;
     }
   }
 
   // User Preferences
   async getUserPreferences(userId: string): Promise<UserPreferences | undefined> {
-    return this.userPreferences.get(userId);
+    const [prefs] = await db.select().from(user_preferences).where(eq(user_preferences.user_id, userId));
+    return prefs || undefined;
   }
 
   async createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences> {
-    const userPrefs: UserPreferences = {
-      user_id: preferences.user_id,
-      default_duration: preferences.default_duration || null,
-      consciousness_level: preferences.consciousness_level || null,
-      breath_pace_bpm: preferences.breath_pace_bpm || null,
-      guidance_voice: preferences.guidance_voice || null,
-      volume: preferences.volume || null,
-      theme: preferences.theme || null,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    this.userPreferences.set(preferences.user_id, userPrefs);
+    const [userPrefs] = await db
+      .insert(user_preferences)
+      .values({
+        user_id: preferences.user_id,
+        default_duration: preferences.default_duration || null,
+        consciousness_level: preferences.consciousness_level || null,
+        breath_pace_bpm: preferences.breath_pace_bpm || null,
+        guidance_voice: preferences.guidance_voice || null,
+        volume: preferences.volume || null,
+        theme: preferences.theme || null,
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .returning();
     return userPrefs;
   }
 
   async updateUserPreferences(userId: string, updates: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined> {
-    const existing = this.userPreferences.get(userId);
-    if (existing) {
-      const updated: UserPreferences = {
-        ...existing,
-        ...updates,
-        updated_at: new Date()
-      };
-      this.userPreferences.set(userId, updated);
-      return updated;
-    }
-    return undefined;
+    const [updated] = await db
+      .update(user_preferences)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(user_preferences.user_id, userId))
+      .returning();
+    return updated || undefined;
   }
 
   // Chat Sessions
   async getChatSession(id: string): Promise<ChatSession | undefined> {
-    return this.chatSessions.get(id);
+    const [session] = await db.select().from(chat_sessions).where(eq(chat_sessions.id, id));
+    return session || undefined;
   }
 
   async createChatSession(sessionData: InsertChatSession): Promise<ChatSession> {
-    const id = randomUUID();
-    const session: ChatSession = {
-      id,
-      user_id: sessionData.user_id,
-      title: sessionData.title || null,
-      created_at: new Date(),
-      last_activity_at: new Date()
-    };
-    this.chatSessions.set(id, session);
+    const [session] = await db
+      .insert(chat_sessions)
+      .values({
+        id: randomUUID(),
+        user_id: sessionData.user_id,
+        title: sessionData.title || null,
+        created_at: new Date(),
+        last_activity_at: new Date()
+      })
+      .returning();
     return session;
   }
 
   async getChatSessionsByUser(userId: string): Promise<ChatSession[]> {
-    return Array.from(this.chatSessions.values())
-      .filter(session => session.user_id === userId)
-      .sort((a, b) => b.last_activity_at!.getTime() - a.last_activity_at!.getTime());
+    return await db
+      .select()
+      .from(chat_sessions)
+      .where(eq(chat_sessions.user_id, userId))
+      .orderBy(desc(chat_sessions.last_activity_at));
   }
 
   async updateChatSessionActivity(sessionId: string): Promise<void> {
-    const session = this.chatSessions.get(sessionId);
-    if (session) {
-      session.last_activity_at = new Date();
-      this.chatSessions.set(sessionId, session);
-    }
+    await db
+      .update(chat_sessions)
+      .set({ last_activity_at: new Date() })
+      .where(eq(chat_sessions.id, sessionId));
   }
 
   async deleteChatSession(sessionId: string): Promise<void> {
+    // Delete associated messages first
+    await db.delete(chat_messages).where(eq(chat_messages.chat_session_id, sessionId));
+    
     // Delete chat session
-    this.chatSessions.delete(sessionId);
-    
-    // Delete associated messages
-    const messagesToDelete = Array.from(this.chatMessages.values())
-      .filter(message => message.chat_session_id === sessionId);
-    
-    messagesToDelete.forEach(message => {
-      this.chatMessages.delete(message.id);
-    });
+    await db.delete(chat_sessions).where(eq(chat_sessions.id, sessionId));
   }
 
   // Meditation Sessions
   async getMeditationSession(id: string): Promise<MeditationSession | undefined> {
-    return this.meditationSessions.get(id);
+    const [session] = await db.select().from(meditation_sessions).where(eq(meditation_sessions.id, id));
+    return session || undefined;
   }
 
   async createMeditationSession(sessionData: InsertMeditationSession): Promise<MeditationSession> {
-    const id = randomUUID();
-    const session: MeditationSession = {
-      id,
-      user_id: sessionData.user_id,
-      meditation_id: sessionData.meditation_id || null,
-      soundscape_id: sessionData.soundscape_id || null,
-      neural_pattern_id: sessionData.neural_pattern_id || null,
-      status: sessionData.status || "draft",
-      started_at: sessionData.started_at || null,
-      ended_at: sessionData.ended_at || null,
-      target_duration: sessionData.target_duration,
-      actual_duration: sessionData.actual_duration || null,
-      current_phase: sessionData.current_phase || null,
-      intensity: sessionData.intensity || null,
-      user_rating: sessionData.user_rating || null,
-      notes: sessionData.notes || null,
-      config: sessionData.config || null,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    this.meditationSessions.set(id, session);
+    const [session] = await db
+      .insert(meditation_sessions)
+      .values({
+        id: randomUUID(),
+        user_id: sessionData.user_id,
+        meditation_id: sessionData.meditation_id || null,
+        soundscape_id: sessionData.soundscape_id || null,
+        neural_pattern_id: sessionData.neural_pattern_id || null,
+        status: sessionData.status || "draft",
+        started_at: sessionData.started_at || null,
+        ended_at: sessionData.ended_at || null,
+        target_duration: sessionData.target_duration,
+        actual_duration: sessionData.actual_duration || null,
+        current_phase: sessionData.current_phase || null,
+        intensity: sessionData.intensity || null,
+        user_rating: sessionData.user_rating || null,
+        notes: sessionData.notes || null,
+        config: sessionData.config || null,
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .returning();
     return session;
   }
 
   async getMeditationSessionsByStatus(userId: string, status: string): Promise<MeditationSession[]> {
-    return Array.from(this.meditationSessions.values())
-      .filter(session => session.user_id === userId && session.status === status);
+    return await db
+      .select()
+      .from(meditation_sessions)
+      .where(
+        and(
+          eq(meditation_sessions.user_id, userId),
+          eq(meditation_sessions.status, status)
+        )
+      );
   }
 
   // Meditation Session Events
   async createMeditationSessionEvent(eventData: InsertMeditationSessionEvent): Promise<MeditationSessionEvent> {
-    const id = randomUUID();
-    const event: MeditationSessionEvent = {
-      id,
-      meditation_session_id: eventData.meditation_session_id,
-      event_type: eventData.event_type,
-      payload: eventData.payload || null,
-      timestamp: new Date()
-    };
-    this.meditationSessionEvents.set(id, event);
+    const [event] = await db
+      .insert(meditation_session_events)
+      .values({
+        id: randomUUID(),
+        meditation_session_id: eventData.meditation_session_id,
+        event_type: eventData.event_type,
+        payload: eventData.payload || null,
+        timestamp: new Date()
+      })
+      .returning();
     return event;
   }
 
   async getMeditationSessionEvents(sessionId: string): Promise<MeditationSessionEvent[]> {
-    return Array.from(this.meditationSessionEvents.values())
-      .filter(event => event.meditation_session_id === sessionId)
-      .sort((a, b) => a.timestamp!.getTime() - b.timestamp!.getTime());
+    return await db
+      .select()
+      .from(meditation_session_events)
+      .where(eq(meditation_session_events.meditation_session_id, sessionId))
+      .orderBy(meditation_session_events.timestamp);
   }
 
   // User Favorites
   async getUserFavorites(userId: string): Promise<UserFavorite[]> {
-    return Array.from(this.userFavorites.values())
-      .filter(favorite => favorite.user_id === userId);
+    return await db
+      .select()
+      .from(user_favorites)
+      .where(eq(user_favorites.user_id, userId));
   }
 
   async createUserFavorite(favoriteData: InsertUserFavorite): Promise<UserFavorite> {
-    const id = randomUUID();
-    const favorite: UserFavorite = {
-      ...favoriteData,
-      id,
-      created_at: new Date()
-    };
-    this.userFavorites.set(id, favorite);
+    const [favorite] = await db
+      .insert(user_favorites)
+      .values({
+        id: randomUUID(),
+        user_id: favoriteData.user_id,
+        entity_type: favoriteData.entity_type,
+        entity_id: favoriteData.entity_id,
+        created_at: new Date()
+      })
+      .returning();
     return favorite;
   }
 
   async deleteUserFavorite(userId: string, entityType: string, entityId: string): Promise<void> {
-    const favoriteToDelete = Array.from(this.userFavorites.values())
-      .find(fav => fav.user_id === userId && fav.entity_type === entityType && fav.entity_id === entityId);
-    
-    if (favoriteToDelete) {
-      this.userFavorites.delete(favoriteToDelete.id);
-    }
+    await db
+      .delete(user_favorites)
+      .where(
+        and(
+          eq(user_favorites.user_id, userId),
+          eq(user_favorites.entity_type, entityType),
+          eq(user_favorites.entity_id, entityId)
+        )
+      );
   }
 
   async isUserFavorite(userId: string, entityType: string, entityId: string): Promise<boolean> {
-    return Array.from(this.userFavorites.values())
-      .some(fav => fav.user_id === userId && fav.entity_type === entityType && fav.entity_id === entityId);
+    const [favorite] = await db
+      .select()
+      .from(user_favorites)
+      .where(
+        and(
+          eq(user_favorites.user_id, userId),
+          eq(user_favorites.entity_type, entityType),
+          eq(user_favorites.entity_id, entityId)
+        )
+      );
+    return !!favorite;
   }
 
   async getMeditation(id: string): Promise<Meditation | undefined> {
-    return this.meditations.get(id);
+    const [meditation] = await db.select().from(meditations).where(eq(meditations.id, id));
+    return meditation || undefined;
   }
 
   async createMeditation(insertMeditation: InsertMeditation): Promise<Meditation> {
-    const id = randomUUID();
-    const meditation: Meditation = { 
-      ...insertMeditation, 
-      id,
-      created_at: new Date()
-    };
-    this.meditations.set(id, meditation);
+    const [meditation] = await db
+      .insert(meditations)
+      .values({
+        id: randomUUID(),
+        pattern: insertMeditation.pattern,
+        duration: insertMeditation.duration,
+        frequencies: insertMeditation.frequencies,
+        geometry_sequence: insertMeditation.geometry_sequence,
+        neural_targets: insertMeditation.neural_targets,
+        consciousness_level: insertMeditation.consciousness_level,
+        awakening_code: insertMeditation.awakening_code,
+        created_at: new Date()
+      })
+      .returning();
     return meditation;
   }
 
   async getAllMeditations(): Promise<Meditation[]> {
-    return Array.from(this.meditations.values());
+    return await db.select().from(meditations);
   }
 
   async getAffirmation(id: string): Promise<Affirmation | undefined> {
-    return this.affirmations.get(id);
+    const [affirmation] = await db.select().from(affirmations).where(eq(affirmations.id, id));
+    return affirmation || undefined;
   }
 
   async createAffirmation(insertAffirmation: InsertAffirmation): Promise<Affirmation> {
-    const id = randomUUID();
-    const affirmation: Affirmation = { 
-      ...insertAffirmation, 
-      id,
-      user_id: insertAffirmation.user_id || null,
-      created_at: new Date()
-    };
-    this.affirmations.set(id, affirmation);
+    const [affirmation] = await db
+      .insert(affirmations)
+      .values({
+        id: randomUUID(),
+        user_id: insertAffirmation.user_id || null,
+        text: insertAffirmation.text,
+        category: insertAffirmation.category,
+        vibrational_frequency: insertAffirmation.vibrational_frequency,
+        cosmic_alignment: insertAffirmation.cosmic_alignment,
+        created_at: new Date()
+      })
+      .returning();
     return affirmation;
   }
 
   async getAffirmationsByCategory(category: string): Promise<Affirmation[]> {
-    return Array.from(this.affirmations.values()).filter(
-      affirmation => affirmation.category === category
-    );
+    return await db
+      .select()
+      .from(affirmations)
+      .where(eq(affirmations.category, category));
   }
 
   async getAffirmationsByUser(userId: string): Promise<Affirmation[]> {
-    return Array.from(this.affirmations.values()).filter(
-      affirmation => affirmation.user_id === userId
-    );
+    return await db
+      .select()
+      .from(affirmations)
+      .where(eq(affirmations.user_id, userId));
   }
 
   async getSoundscape(id: string): Promise<Soundscape | undefined> {
-    return this.soundscapes.get(id);
+    const [soundscape] = await db.select().from(soundscapes).where(eq(soundscapes.id, id));
+    return soundscape || undefined;
   }
 
   async createSoundscape(insertSoundscape: InsertSoundscape): Promise<Soundscape> {
-    const id = randomUUID();
-    const soundscape: Soundscape = { 
-      ...insertSoundscape, 
-      id,
-      created_at: new Date()
-    };
-    this.soundscapes.set(id, soundscape);
+    const [soundscape] = await db
+      .insert(soundscapes)
+      .values({
+        id: randomUUID(),
+        name: insertSoundscape.name,
+        frequencies: insertSoundscape.frequencies,
+        duration: insertSoundscape.duration,
+        galactic_type: insertSoundscape.galactic_type,
+        audio_params: insertSoundscape.audio_params,
+        created_at: new Date()
+      })
+      .returning();
     return soundscape;
   }
 
   async getAllSoundscapes(): Promise<Soundscape[]> {
-    return Array.from(this.soundscapes.values());
+    return await db.select().from(soundscapes);
   }
 
   async getNeuralPattern(id: string): Promise<NeuralPattern | undefined> {
-    return this.neuralPatterns.get(id);
+    const [pattern] = await db.select().from(neural_patterns).where(eq(neural_patterns.id, id));
+    return pattern || undefined;
   }
 
   async createNeuralPattern(insertPattern: InsertNeuralPattern): Promise<NeuralPattern> {
-    const id = randomUUID();
-    const pattern: NeuralPattern = { 
-      ...insertPattern, 
-      id,
-      created_at: new Date()
-    };
-    this.neuralPatterns.set(id, pattern);
+    const [pattern] = await db
+      .insert(neural_patterns)
+      .values({
+        id: randomUUID(),
+        pattern_type: insertPattern.pattern_type,
+        brain_waves: insertPattern.brain_waves,
+        visualization_data: insertPattern.visualization_data,
+        activation_sequence: insertPattern.activation_sequence,
+        created_at: new Date()
+      })
+      .returning();
     return pattern;
   }
 
   async getNeuralPatternsByType(type: string): Promise<NeuralPattern[]> {
-    return Array.from(this.neuralPatterns.values()).filter(
-      pattern => pattern.pattern_type === type
-    );
+    return await db
+      .select()
+      .from(neural_patterns)
+      .where(eq(neural_patterns.pattern_type, type));
   }
 
   async getHeartGalaxySession(id: string): Promise<HeartGalaxySession | undefined> {
-    return this.heartGalaxySessions.get(id);
+    const [session] = await db.select().from(heart_galaxy_sessions).where(eq(heart_galaxy_sessions.id, id));
+    return session || undefined;
   }
 
   async createHeartGalaxySession(insertSession: InsertHeartGalaxySession): Promise<HeartGalaxySession> {
-    const id = randomUUID();
-    const session: HeartGalaxySession = { 
-      ...insertSession,
-      meditation_session_id: insertSession.meditation_session_id || null,
-      id,
-      created_at: new Date()
-    };
-    this.heartGalaxySessions.set(id, session);
+    const [session] = await db
+      .insert(heart_galaxy_sessions)
+      .values({
+        id: randomUUID(),
+        user_id: insertSession.user_id,
+        meditation_session_id: insertSession.meditation_session_id || null,
+        heart_rate: insertSession.heart_rate,
+        coherence_level: insertSession.coherence_level,
+        galaxy_sync_status: insertSession.galaxy_sync_status,
+        cosmic_coordinates: insertSession.cosmic_coordinates,
+        session_duration: insertSession.session_duration,
+        created_at: new Date()
+      })
+      .returning();
     return session;
   }
 
   async getHeartGalaxySessionsByUser(userId: string): Promise<HeartGalaxySession[]> {
-    return Array.from(this.heartGalaxySessions.values())
-      .filter(session => session.user_id === userId);
+    return await db
+      .select()
+      .from(heart_galaxy_sessions)
+      .where(eq(heart_galaxy_sessions.user_id, userId));
   }
 
   // Chat Messages
   async getChatMessage(id: string): Promise<ChatMessage | undefined> {
-    return this.chatMessages.get(id);
+    const [message] = await db.select().from(chat_messages).where(eq(chat_messages.id, id));
+    return message || undefined;
   }
 
   async createChatMessage(insertChatMessage: InsertChatMessage): Promise<ChatMessage> {
-    const id = randomUUID();
-    const chatMessage: ChatMessage = {
-      ...insertChatMessage,
-      id,
-      created_at: new Date()
-    };
-    this.chatMessages.set(id, chatMessage);
+    const [chatMessage] = await db
+      .insert(chat_messages)
+      .values({
+        id: randomUUID(),
+        chat_session_id: insertChatMessage.chat_session_id,
+        role: insertChatMessage.role,
+        content: insertChatMessage.content,
+        created_at: new Date()
+      })
+      .returning();
     return chatMessage;
   }
 
   async getChatMessagesBySession(sessionId: string): Promise<ChatMessage[]> {
-    return Array.from(this.chatMessages.values())
-      .filter(message => message.chat_session_id === sessionId)
-      .sort((a, b) => a.created_at!.getTime() - b.created_at!.getTime());
+    return await db
+      .select()
+      .from(chat_messages)
+      .where(eq(chat_messages.chat_session_id, sessionId))
+      .orderBy(chat_messages.created_at);
   }
 
   // Enhanced meditation session methods for phase-based engine
   async updateMeditationSession(sessionId: string, updates: Partial<MeditationSession>): Promise<MeditationSession> {
-    const session = await this.getMeditationSession(sessionId);
-    if (!session) {
+    const [updatedSession] = await db
+      .update(meditation_sessions)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(meditation_sessions.id, sessionId))
+      .returning();
+    
+    if (!updatedSession) {
       throw new Error(`Meditation session ${sessionId} not found`);
     }
     
-    const updatedSession = {
-      ...session,
-      ...updates,
-      updated_at: new Date()
-    };
-    
-    this.meditationSessions.set(sessionId, updatedSession);
     return updatedSession;
   }
 
   async getMeditationSessionsByUser(userId: string): Promise<MeditationSession[]> {
-    return Array.from(this.meditationSessions.values())
-      .filter(session => session.user_id === userId)
-      .sort((a, b) => b.created_at!.getTime() - a.created_at!.getTime());
+    return await db
+      .select()
+      .from(meditation_sessions)
+      .where(eq(meditation_sessions.user_id, userId))
+      .orderBy(desc(meditation_sessions.created_at));
   }
 
   async getActiveMeditationSession(userId: string): Promise<MeditationSession | null> {
-    const sessions = Array.from(this.meditationSessions.values());
-    return sessions.find(
-      session => session.user_id === userId && session.status === "running" && !session.ended_at
-    ) || null;
+    const [session] = await db
+      .select()
+      .from(meditation_sessions)
+      .where(
+        and(
+          eq(meditation_sessions.user_id, userId),
+          eq(meditation_sessions.status, "running")
+        )
+      )
+      .limit(1);
+    return session || null;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
